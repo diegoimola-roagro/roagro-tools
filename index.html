@@ -334,35 +334,29 @@ const btnLogout = document.getElementById('btnLogout');
 const loginError = document.getElementById('loginError');
 const userInfo = document.getElementById('userInfo');
 
-const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
-
 btnLogin.addEventListener('click', async () => {
   try {
     loginError.textContent = '';
-    if (isMobile) {
-      await signInWithRedirect(auth, provider);
-    } else {
-      const result = await signInWithPopup(auth, provider);
-      const email = result.user.email;
-      if (!email.endsWith('@roagro.com.ar')) {
-        await signOut(auth);
-        loginError.textContent = '✗ Acceso restringido a cuentas @roagro.com.ar';
-      }
+    const result = await signInWithPopup(auth, provider);
+    const email = result.user.email;
+    if (!email.endsWith('@roagro.com.ar')) {
+      await signOut(auth);
+      loginError.textContent = '✗ Acceso restringido a cuentas @roagro.com.ar';
     }
   } catch(e) {
-    if (e.code !== 'auth/popup-closed-by-user') {
+    if (e.code === 'auth/popup-blocked' || e.code === 'auth/cancelled-popup-request') {
+      loginError.textContent = 'Popup bloqueado. Intentando redirección...';
+      await signInWithRedirect(auth, provider);
+    } else if (e.code !== 'auth/popup-closed-by-user') {
       loginError.textContent = '✗ Error al iniciar sesión. Intentá de nuevo.';
     }
   }
 });
 
-// Capturar resultado del redirect en mobile
 getRedirectResult(auth).then(result => {
   if (result?.user) {
     const email = result.user.email;
-    if (!email.endsWith('@roagro.com.ar')) {
-      signOut(auth);
-    }
+    if (!email.endsWith('@roagro.com.ar')) signOut(auth);
   }
 }).catch(() => {});
 
