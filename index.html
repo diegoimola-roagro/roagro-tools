@@ -229,6 +229,7 @@
     </div>
     <div class="header-right">
       <button class="btn-import" id="btnImport">+ CARGAR EXTRACTO</button>
+      <button class="btn-import" id="btnClear" style="border-color:var(--text-dim);color:var(--text-dim);background:transparent;display:none">🗑 LIMPIAR</button>
       <button class="btn-import" id="btnExportPNG" style="border-color:var(--green);color:var(--green);background:var(--green-dim);display:none">↓ RESUMEN PNG</button>
       <div class="header-date" id="headerDate">📅 —</div>
       <div class="user-badge">👤 <span id="userInfo"></span><button class="btn-logout" id="btnLogout" title="Cerrar sesión">✕</button></div>
@@ -682,7 +683,9 @@ function importExtract(text) {
 // UI REBUILD
 // ═══════════════════════════════════════════
 function showExportBtn() {
-  if (positions.length > 0) document.getElementById('btnExportPNG').style.display = 'inline-block';
+  const hasData = positions.length > 0;
+  document.getElementById('btnExportPNG').style.display = hasData ? 'inline-block' : 'none';
+  document.getElementById('btnClear').style.display = hasData ? 'inline-block' : 'none';
 }
 
 function rebuildAccountChips() {
@@ -1018,6 +1021,28 @@ async function exportPNG() {
 }
 
 document.getElementById('btnExportPNG').addEventListener('click', exportPNG);
+
+document.getElementById('btnClear').addEventListener('click', () => {
+  if (!confirm('¿Confirmás que querés limpiar todos los datos cargados?')) return;
+  positions = [];
+  allAccounts = [];
+  selectedAccounts = [];
+  Object.keys(acctNames).forEach(k => delete acctNames[k]);
+  TC = 1415;
+  pendingCount = 0;
+  selectedEfectivo = 'all';
+  selectedEstado = 'all';
+  document.getElementById('headerDate').textContent = '📅 —';
+  document.getElementById('controlsBar').style.display = 'none';
+  document.getElementById('tabsBar').style.display = 'none';
+  document.getElementById('kpiRow').innerHTML = '';
+  document.getElementById('emptyState').style.display = 'block';
+  document.getElementById('emptyState').querySelector('h2').textContent = 'Sin datos cargados';
+  document.getElementById('emptyState').querySelector('p').textContent = 'Pegá el texto del extracto de AUNE usando el botón "Cargar Extracto" para comenzar.';
+  ['tab-resumen','tab-renta-variable','tab-renta-fija','tab-liquidez','tab-cuentas'].forEach(id => document.getElementById(id).innerHTML = '');
+  showExportBtn();
+  saveToFirebase();
+});
 
 renderAll();
 
