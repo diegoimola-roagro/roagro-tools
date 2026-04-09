@@ -931,14 +931,14 @@ function buildSlideHTML() {
     `<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:rgba(255,255,255,0.04);border-radius:7px;margin-bottom:8px">
       <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;color:#787d8a;width:14px;text-align:center;flex-shrink:0">${i+1}</div>
       <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;letter-spacing:0.5px;width:50px;flex-shrink:0;color:${tickerColors[i]}">${p.ticker}</div>
-      <div style="font-size:11px;color:#a8adb8;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.nombre||''}</div>
+      <div style="font-size:11px;color:#a8adb8;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${(p.nombre||'').substring(0,26)}${(p.nombre||'').length>26?'…':''}</div>
       <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;color:#5bbf8a;flex-shrink:0">${fmtU(cv(p.importeARS))}</div>
       <div style="font-size:10px;color:#787d8a;width:26px;text-align:right;flex-shrink:0">${pct(p.importeARS,totalARS)}</div>
     </div>`).join('');
 
   const fechaTxt = document.getElementById('headerDate').textContent;
 
-  return `<div id="__slide_export__" style="background:#2a2d33;border-radius:16px;padding:32px 36px;font-family:Arial,sans-serif;color:#eceef2;width:960px;border:1px solid #44484f">
+  return `<div id="__slide_export__" style="background:#2a2d33;border-radius:16px;padding:32px 40px;font-family:Arial,sans-serif;color:#eceef2;width:1100px;border:1px solid #44484f">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;border-bottom:1px solid #44484f;padding-bottom:16px">
       <div style="display:flex;align-items:center;gap:14px">
         <div style="width:38px;height:38px;background:linear-gradient(135deg,#d94f3a,#a04020);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:19px;color:#fff">R</div>
@@ -1006,7 +1006,7 @@ async function exportPNG() {
   document.body.appendChild(wrapper);
   const slide = wrapper.querySelector('#__slide_export__');
   try {
-    const canvas = await html2canvas(slide, { backgroundColor:'#2a2d33', scale:2, useCORS:true, logging:false });
+    const canvas = await html2canvas(slide, { backgroundColor:'#2a2d33', scale:1.5, useCORS:true, logging:false });
     const link = document.createElement('a');
     link.download = 'roagro-cartera-' + new Date().toISOString().slice(0,10) + '.png';
     link.href = canvas.toDataURL('image/png');
