@@ -395,6 +395,7 @@ async function loadFromFirebase() {
       allAccounts = [...new Set(positions.map(p => p.cuenta))];
       selectedAccounts = [...allAccounts];
       rebuildAccountChips();
+      showExportBtn();
       renderAll();
       console.log("✓ Datos cargados desde Firebase");
     } else {
@@ -685,6 +686,7 @@ function showExportBtn() {
 }
 
 function rebuildAccountChips() {
+  showExportBtn();
   const c = document.getElementById('acctChips');
   let h = `<button class="acct-chip active" data-acct="all">Todas</button>`;
   allAccounts.forEach(a => { const n=(acctNames[a]||a).replace(/^ROAGRO\s*/i,'').substring(0,15); h+=`<button class="acct-chip" data-acct="${a}">${a} ${n}</button>`; });
