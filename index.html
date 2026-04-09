@@ -168,6 +168,7 @@
   .animate-in { animation:fadeUp 0.5s ease both; }
   .delay-1{animation-delay:.05s}.delay-2{animation-delay:.1s}.delay-3{animation-delay:.15s}.delay-4{animation-delay:.2s}.delay-5{animation-delay:.25s}.delay-6{animation-delay:.3s}.delay-7{animation-delay:.35s}.delay-8{animation-delay:.4s}
 </style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
 <style>
@@ -228,6 +229,7 @@
     </div>
     <div class="header-right">
       <button class="btn-import" id="btnImport">+ CARGAR EXTRACTO</button>
+      <button class="btn-import" id="btnExportPNG" style="border-color:var(--green);color:var(--green);background:var(--green-dim);display:none">↓ RESUMEN PNG</button>
       <div class="header-date" id="headerDate">📅 —</div>
       <div class="user-badge">👤 <span id="userInfo"></span><button class="btn-logout" id="btnLogout" title="Cerrar sesión">✕</button></div>
     </div>
@@ -678,6 +680,10 @@ function importExtract(text) {
 // ═══════════════════════════════════════════
 // UI REBUILD
 // ═══════════════════════════════════════════
+function showExportBtn() {
+  if (positions.length > 0) document.getElementById('btnExportPNG').style.display = 'inline-block';
+}
+
 function rebuildAccountChips() {
   const c = document.getElementById('acctChips');
   let h = `<button class="acct-chip active" data-acct="all">Todas</button>`;
@@ -841,6 +847,176 @@ document.getElementById('btnParse').addEventListener('click',()=>{
     console.error(e);
   }
 });
+
+// ═══════════════════════════════════════════
+// EXPORT PNG — RESUMEN EJECUTIVO
+// ═══════════════════════════════════════════
+function buildSlideHTML() {
+  const cv = (ars) => ars / TC;
+  const fmt = (n) => n >= 1000000 ? (n/1000000).toFixed(1)+'M' : n >= 1000 ? (n/1000).toFixed(0)+'K' : Math.round(n).toLocaleString('es-AR');
+  const fmtU = (n) => 'U$S ' + fmt(n);
+  const pct = (a,b) => b ? Math.round(a/b*100)+'%' : '0%';
+
+  const data = positions.filter(p => {
+    if (!selectedAccounts.includes(p.cuenta)) return false;
+    if (selectedEstado !== 'all' && p.estado !== selectedEstado) return false;
+    return true;
+  });
+
+  const totalARS = data.reduce((s,p) => s+p.importeARS, 0);
+  const totalUSD = cv(totalARS);
+  const gtia = data.filter(p => p.estado === 'Garantía');
+  const gtiaUSD = cv(gtia.reduce((s,p) => s+p.importeARS, 0));
+  const gtiaP = pct(gtia.reduce((s,p)=>s+p.importeARS,0), totalARS);
+
+  const rf = data.filter(p => ['Bono','Letra','ON','Pagaré','T-Bill'].includes(p.tipo));
+  const rfP = pct(rf.reduce((s,p)=>s+p.importeARS,0), totalARS);
+
+  const byClass = {
+    'Renta Fija': { color:'#3db0c4', val: rf.reduce((s,p)=>s+p.importeARS,0) },
+    'Renta Variable': { color:'#5b8fd4', val: data.filter(p=>['Acciones','CEDEAR'].includes(p.tipo)).reduce((s,p)=>s+p.importeARS,0) },
+    'Liquidez': { color:'#5bbf8a', val: data.filter(p=>p.tipo==='Efectivo').reduce((s,p)=>s+p.importeARS,0) },
+    'FCIs': { color:'#c06090', val: data.filter(p=>p.tipo==='FCI').reduce((s,p)=>s+p.importeARS,0) }
+  };
+  const classEntries = Object.entries(byClass).filter(([,v])=>v.val>0).sort((a,b)=>b[1].val-a[1].val);
+
+  // Donut arcs
+  let offset = 0;
+  const circ = 2 * Math.PI * 38;
+  const arcs = classEntries.map(([lbl, v]) => {
+    const frac = totalARS ? v.val/totalARS : 0;
+    const dash = frac * circ;
+    const arc = `<circle cx="50" cy="50" r="38" fill="none" stroke="${v.color}" stroke-width="16" stroke-dasharray="${dash.toFixed(1)} ${(circ-dash).toFixed(1)}" stroke-dashoffset="${(-offset).toFixed(1)}" transform="rotate(-90 50 50)"/>`;
+    offset += dash;
+    return arc;
+  }).join('');
+
+  const legendItems = classEntries.map(([lbl,v]) =>
+    `<div style="display:flex;align-items:center;gap:7px;font-size:11px;margin-bottom:7px">
+      <div style="width:8px;height:8px;border-radius:3px;background:${v.color};flex-shrink:0"></div>
+      <span style="font-weight:700;width:32px;text-align:right;font-variant-numeric:tabular-nums;font-size:12px">${pct(v.val,totalARS)}</span>
+      <span style="color:#a8adb8">${lbl}</span>
+    </div>`).join('');
+
+  // Desglose por tipo
+  const byType = {};
+  data.forEach(p => { byType[p.tipo] = (byType[p.tipo]||0) + p.importeARS; });
+  const typeColors = {'Bono':'#d4924a','Acciones':'#5b8fd4','Letra':'#3db0c4','Efectivo':'#5bbf8a','CEDEAR':'#9070cc','ON':'#5bbf8a','FCI':'#c06090','Pagaré':'#a8adb8','T-Bill':'#3db0c4'};
+  const typeEntries = Object.entries(byType).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxType = typeEntries[0]?.[1]||1;
+  const barRows = typeEntries.map(([tipo,val]) => {
+    const w = Math.max((val/maxType)*100, 3).toFixed(0);
+    const col = typeColors[tipo]||'#a8adb8';
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:9px">
+      <div style="font-size:11px;color:#a8adb8;width:70px;text-align:right;flex-shrink:0">${tipo}</div>
+      <div style="flex:1;height:20px;background:rgba(255,255,255,0.06);border-radius:5px;overflow:hidden">
+        <div style="width:${w}%;height:100%;background:${col};border-radius:5px;display:flex;align-items:center;padding-left:7px;font-size:10px;font-weight:600;color:#fff">${pct(val,totalARS)}</div>
+      </div>
+      <div style="font-size:11px;color:#a8adb8;width:64px;text-align:right;flex-shrink:0">${fmtU(cv(val))}</div>
+    </div>`;
+  }).join('');
+
+  // Top 5
+  const tickerColors = ['#d4924a','#5b8fd4','#3db0c4','#9070cc','#5bbf8a'];
+  const cons = {};
+  data.forEach(p => {
+    const k = p.ticker;
+    if (!cons[k]) cons[k] = {...p, importeARS:0};
+    cons[k].importeARS += p.importeARS;
+  });
+  const top5 = Object.values(cons).sort((a,b)=>b.importeARS-a.importeARS).slice(0,5);
+  const top5Rows = top5.map((p,i) =>
+    `<div style="display:flex;align-items:center;gap:10px;padding:7px 10px;background:rgba(255,255,255,0.04);border-radius:7px;margin-bottom:8px">
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;color:#787d8a;width:14px;text-align:center;flex-shrink:0">${i+1}</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:14px;letter-spacing:0.5px;width:50px;flex-shrink:0;color:${tickerColors[i]}">${p.ticker}</div>
+      <div style="font-size:11px;color:#a8adb8;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${p.nombre||''}</div>
+      <div style="font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:13px;color:#5bbf8a;flex-shrink:0">${fmtU(cv(p.importeARS))}</div>
+      <div style="font-size:10px;color:#787d8a;width:26px;text-align:right;flex-shrink:0">${pct(p.importeARS,totalARS)}</div>
+    </div>`).join('');
+
+  const fechaTxt = document.getElementById('headerDate').textContent;
+
+  return `<div id="__slide_export__" style="background:#2a2d33;border-radius:16px;padding:32px 36px;font-family:Arial,sans-serif;color:#eceef2;width:960px;border:1px solid #44484f">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:22px;border-bottom:1px solid #44484f;padding-bottom:16px">
+      <div style="display:flex;align-items:center;gap:14px">
+        <div style="width:38px;height:38px;background:linear-gradient(135deg,#d94f3a,#a04020);border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:19px;color:#fff">R</div>
+        <div>
+          <div style="font-weight:700;font-size:21px;letter-spacing:0.5px">PANEL DE INVERSIONES</div>
+          <div style="font-size:12px;color:#a8adb8">Roagro SA — Resumen Ejecutivo</div>
+        </div>
+      </div>
+      <div style="font-size:12px;color:#787d8a;background:#32363d;padding:6px 14px;border-radius:8px;border:1px solid #44484f">${fechaTxt}</div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px">
+      <div style="background:#32363d;border:1px solid #44484f;border-radius:10px;padding:14px 16px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:#a8adb8;font-weight:600;margin-bottom:5px">Cartera Total</div>
+        <div style="font-weight:700;font-size:22px;color:#5bbf8a;line-height:1">${fmtU(totalUSD)}</div>
+        <div style="font-size:11px;color:#787d8a;margin-top:4px">consolidado</div>
+      </div>
+      <div style="background:#32363d;border:1px solid #44484f;border-radius:10px;padding:14px 16px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:#a8adb8;font-weight:600;margin-bottom:5px">TC Referencia</div>
+        <div style="font-weight:700;font-size:22px;color:#d4924a;line-height:1">${TC.toLocaleString('es-AR')}</div>
+        <div style="font-size:11px;color:#787d8a;margin-top:4px">ARS / USD</div>
+      </div>
+      <div style="background:#32363d;border:1px solid #44484f;border-radius:10px;padding:14px 16px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:#a8adb8;font-weight:600;margin-bottom:5px">Renta Fija</div>
+        <div style="font-weight:700;font-size:22px;color:#3db0c4;line-height:1">${rfP}</div>
+        <div style="font-size:11px;color:#787d8a;margin-top:4px">de la cartera</div>
+      </div>
+      <div style="background:#32363d;border:1px solid #44484f;border-radius:10px;padding:14px 16px">
+        <div style="font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:#a8adb8;font-weight:600;margin-bottom:5px">En Garantía</div>
+        <div style="font-weight:700;font-size:22px;color:#d94f3a;line-height:1">${fmtU(gtiaUSD)}</div>
+        <div style="font-size:11px;color:#787d8a;margin-top:4px">${gtiaP} del total</div>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:14px">
+      <div style="background:#32363d;border:1px solid #44484f;border-radius:12px;padding:18px">
+        <div style="font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#a8adb8;margin-bottom:14px;display:flex;align-items:center;gap:7px"><span style="width:7px;height:7px;border-radius:50%;background:#d94f3a;display:inline-block"></span>Composición por Clase</div>
+        <div style="display:flex;align-items:center;gap:16px;justify-content:center">
+          <svg width="100" height="100" viewBox="0 0 100 100">
+            <circle cx="50" cy="50" r="38" fill="none" stroke="#44484f" stroke-width="16"/>
+            ${arcs}
+            <text x="50" y="46" text-anchor="middle" font-size="11" font-weight="700" fill="#eceef2" font-family="Arial,sans-serif">${fmtU(totalUSD).replace('U$S ','')}</text>
+            <text x="50" y="58" text-anchor="middle" font-size="9" fill="#a8adb8" font-family="Arial,sans-serif">USD</text>
+          </svg>
+          <div>${legendItems}</div>
+        </div>
+      </div>
+      <div style="background:#32363d;border:1px solid #44484f;border-radius:12px;padding:18px">
+        <div style="font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#a8adb8;margin-bottom:14px;display:flex;align-items:center;gap:7px"><span style="width:7px;height:7px;border-radius:50%;background:#5b8fd4;display:inline-block"></span>Desglose por Tipo</div>
+        ${barRows}
+      </div>
+      <div style="background:#32363d;border:1px solid #44484f;border-radius:12px;padding:18px">
+        <div style="font-weight:600;font-size:12px;text-transform:uppercase;letter-spacing:1px;color:#a8adb8;margin-bottom:14px;display:flex;align-items:center;gap:7px"><span style="width:7px;height:7px;border-radius:50%;background:#5bbf8a;display:inline-block"></span>Top 5 Posiciones</div>
+        ${top5Rows}
+      </div>
+    </div>
+  </div>`;
+}
+
+async function exportPNG() {
+  const btn = document.getElementById('btnExportPNG');
+  btn.textContent = 'Generando...';
+  btn.disabled = true;
+  const wrapper = document.createElement('div');
+  wrapper.style.cssText = 'position:fixed;left:-9999px;top:0;z-index:-1';
+  wrapper.innerHTML = buildSlideHTML();
+  document.body.appendChild(wrapper);
+  const slide = wrapper.querySelector('#__slide_export__');
+  try {
+    const canvas = await html2canvas(slide, { backgroundColor:'#2a2d33', scale:2, useCORS:true, logging:false });
+    const link = document.createElement('a');
+    link.download = 'roagro-cartera-' + new Date().toISOString().slice(0,10) + '.png';
+    link.href = canvas.toDataURL('image/png');
+    link.click();
+  } catch(e) { alert('Error al generar PNG: '+e.message); }
+  document.body.removeChild(wrapper);
+  btn.textContent = '↓ RESUMEN PNG';
+  btn.disabled = false;
+}
+
+document.getElementById('btnExportPNG').addEventListener('click', exportPNG);
+
 renderAll();
 
 // ── Cargar datos al iniciar ──
