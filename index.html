@@ -307,7 +307,7 @@
 // ═══════════════════════════════════════════
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
-import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signInWithRedirect, getRedirectResult, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBJGbakLA0m8EOciG9FbKZmXHm91CoOs-4",
@@ -334,14 +334,20 @@ const btnLogout = document.getElementById('btnLogout');
 const loginError = document.getElementById('loginError');
 const userInfo = document.getElementById('userInfo');
 
+const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+
 btnLogin.addEventListener('click', async () => {
   try {
     loginError.textContent = '';
-    const result = await signInWithPopup(auth, provider);
-    const email = result.user.email;
-    if (!email.endsWith('@roagro.com.ar')) {
-      await signOut(auth);
-      loginError.textContent = '✗ Acceso restringido a cuentas @roagro.com.ar';
+    if (isMobile) {
+      await signInWithRedirect(auth, provider);
+    } else {
+      const result = await signInWithPopup(auth, provider);
+      const email = result.user.email;
+      if (!email.endsWith('@roagro.com.ar')) {
+        await signOut(auth);
+        loginError.textContent = '✗ Acceso restringido a cuentas @roagro.com.ar';
+      }
     }
   } catch(e) {
     if (e.code !== 'auth/popup-closed-by-user') {
@@ -349,6 +355,16 @@ btnLogin.addEventListener('click', async () => {
     }
   }
 });
+
+// Capturar resultado del redirect en mobile
+getRedirectResult(auth).then(result => {
+  if (result?.user) {
+    const email = result.user.email;
+    if (!email.endsWith('@roagro.com.ar')) {
+      signOut(auth);
+    }
+  }
+}).catch(() => {});
 
 btnLogout.addEventListener('click', () => signOut(auth));
 
