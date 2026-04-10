@@ -344,26 +344,17 @@ btnLogin.addEventListener('click', async () => {
       loginError.textContent = '✗ Acceso restringido a cuentas @roagro.com.ar';
     }
   } catch(e) {
-    if (e.code === 'auth/popup-blocked' || e.code === 'auth/cancelled-popup-request') {
-      loginError.textContent = 'Popup bloqueado. Intentando redirección...';
-      await signInWithRedirect(auth, provider);
-    } else if (e.code !== 'auth/popup-closed-by-user') {
+    if (e.code !== 'auth/popup-closed-by-user') {
       loginError.textContent = '✗ Error al iniciar sesión. Intentá de nuevo.';
+      console.error(e);
     }
   }
 });
 
-getRedirectResult(auth).then(result => {
-  if (result?.user) {
-    const email = result.user.email;
-    if (!email.endsWith('@roagro.com.ar')) signOut(auth);
-  }
-}).catch(() => {});
-
 btnLogout.addEventListener('click', () => signOut(auth));
 
 onAuthStateChanged(auth, user => {
-  if (user && user.email.endsWith('@roagro.com.ar')) {
+  if (user && user.email && user.email.endsWith('@roagro.com.ar')) {
     loginScreen.style.display = 'none';
     mainApp.style.display = 'block';
     userInfo.textContent = user.email;
@@ -371,6 +362,9 @@ onAuthStateChanged(auth, user => {
   } else {
     loginScreen.style.display = 'flex';
     mainApp.style.display = 'none';
+    if (user && !user.email.endsWith('@roagro.com.ar')) {
+      signOut(auth);
+    }
   }
 });
 
