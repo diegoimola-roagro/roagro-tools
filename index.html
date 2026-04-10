@@ -409,8 +409,13 @@ async function loadFromFirebase() {
     }
   } catch(e) {
     console.error("✗ Error cargando desde Firebase:", e);
-    loadingEl.querySelector('h2').textContent = 'Sin datos cargados';
-    loadingEl.querySelector('p').textContent = 'Pegá el texto del extracto de AUNE usando el botón "Cargar Extracto" para comenzar.';
+    // Si falla por permisos, cerrar sesión y volver al login
+    if (e.code === 'permission-denied' || e.code === 'unauthenticated') {
+      await signOut(auth);
+    } else {
+      loadingEl.querySelector('h2').textContent = 'Sin datos cargados';
+      loadingEl.querySelector('p').textContent = 'Pegá el texto del extracto de AUNE usando el botón "Cargar Extracto" para comenzar.';
+    }
   }
 }
 
