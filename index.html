@@ -358,11 +358,19 @@ onAuthStateChanged(auth, user => {
     loginScreen.style.display = 'none';
     mainApp.style.display = 'block';
     userInfo.textContent = user.email;
-    loadFromFirebase();
+    // Timeout de seguridad: si en 8 segundos no cargó, cierra sesión
+    const loadTimeout = setTimeout(async () => {
+      const emptyState = document.getElementById('emptyState');
+      if (emptyState && emptyState.querySelector('h2').textContent === 'Cargando datos...') {
+        console.warn('Timeout al cargar — cerrando sesión');
+        await signOut(auth);
+      }
+    }, 8000);
+    loadFromFirebase().finally(() => clearTimeout(loadTimeout));
   } else {
     loginScreen.style.display = 'flex';
     mainApp.style.display = 'none';
-    if (user && !user.email.endsWith('@roagro.com.ar')) {
+    if (user && user.email && !user.email.endsWith('@roagro.com.ar')) {
       signOut(auth);
     }
   }
@@ -385,7 +393,7 @@ async function saveToFirebase() {
 }
 
 // ── Cargar estado desde Firestore al abrir ──
-async function loadFromFirebase() {
+async function loadFromFirebase() { // returns Promise
   const loadingEl = document.getElementById('emptyState');
   loadingEl.querySelector('h2').textContent = 'Cargando datos...';
   loadingEl.querySelector('p').textContent = 'Conectando con la base de datos...';
