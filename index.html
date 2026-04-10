@@ -1,4 +1,89 @@
-<!DOCTYPE html>
+<script type="module">
+// ═══════════════════════════════════════════
+// FIREBASE INIT
+// ═══════════════════════════════════════════
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBJGbakLA0m8EOciG9FbKZmXHm91CoOs-4",
+  authDomain: "herramientas-finanzas.firebaseapp.com",
+  projectId: "herramientas-finanzas",
+  storageBucket: "herramientas-finanzas.firebasestorage.app",
+  messagingSenderId: "1093008537663",
+  appId: "1:1093008537663:web:e04d28e1e85ca446e1e08a",
+  measurementId: "G-J1XF5QEN4D"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const DOC_REF = doc(db, "inversiones", "portfolio");
+
+// ── Auth UI ──
+
+
+
+// ── Guardar estado en Firestore ──
+async function saveToFirebase() {
+  try {
+    await setDoc(DOC_REF, {
+      positions,
+      acctNames,
+      TC,
+      updatedAt: new Date().toISOString(),
+      headerDate: document.getElementById('headerDate').textContent
+    });
+    console.log("✓ Guardado en Firebase");
+  } catch(e) {
+    console.error("✗ Error guardando en Firebase:", e);
+  }
+}
+
+// ── Cargar estado desde Firestore al abrir ──
+async function loadFromFirebase() { // returns Promise
+  const loadingEl = document.getElementById('emptyState');
+  loadingEl.querySelector('h2').textContent = 'Cargando datos...';
+  loadingEl.querySelector('p').textContent = 'Conectando con la base de datos...';
+  try {
+    const snap = await getDoc(DOC_REF);
+    if (snap.exists()) {
+      const data = snap.data();
+      positions = data.positions || [];
+      Object.assign(acctNames, data.acctNames || {});
+      if (data.TC) TC = data.TC;
+      if (data.headerDate) document.getElementById('headerDate').textContent = data.headerDate;
+      allAccounts = [...new Set(positions.map(p => p.cuenta))];
+      selectedAccounts = [...allAccounts];
+      rebuildAccountChips();
+      showExportBtn();
+      renderAll();
+      console.log("✓ Datos cargados desde Firebase");
+    } else {
+      loadingEl.querySelector('h2').textContent = 'Sin datos cargados';
+      loadingEl.querySelector('p').textContent = 'Pegá el texto del extracto de AUNE usando el botón "Cargar Extracto" para comenzar.';
+    }
+  } catch(e) {
+    console.error("✗ Error cargando desde Firebase:", e);
+    // Si falla por permisos, cerrar sesión y volver al login
+    if (e.code === 'permission-denied' || e.code === 'unauthenticated') {
+      await signOut(auth);
+    } else {
+      loadingEl.querySelector('h2').textContent = 'Sin datos cargados';
+      loadingEl.querySelector('p').textContent = 'Pegá el texto del extracto de AUNE usando el botón "Cargar Extracto" para comenzar.';
+    }
+  }
+}
+
+
+// Exponer funciones a scope global
+window._firebaseSave = saveToFirebase;
+window._firebaseLoad = loadFromFirebase;
+</script>
+
+<script>
+
+</script><!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -257,6 +342,7 @@
 
 
 <script type="module">
+
 // ═══════════════════════════════════════════
 // FIREBASE INIT
 // ═══════════════════════════════════════════
@@ -333,6 +419,10 @@ async function loadFromFirebase() { // returns Promise
   }
 }
 
+
+</script>
+
+<script>
 // ═══════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════
@@ -598,7 +688,7 @@ function importExtract(text) {
   const fechaStr = fechaM ? fechaM[1] : new Date().toLocaleDateString('es-AR');
   document.getElementById('headerDate').textContent = '📅 ' + fechaStr;
   // Guardar en Firebase automáticamente
-  saveToFirebase();
+  if(window._firebaseSave) window._firebaseSave();
   return { success:true, message:`Cuenta [${cuenta}] ${cuentaNombre}: ${newPos.length} posiciones cargadas. TC: ${TC.toLocaleString('es-AR')}` };
 }
 
@@ -964,13 +1054,14 @@ document.getElementById('btnClear').addEventListener('click', () => {
   document.getElementById('emptyState').querySelector('p').textContent = 'Pegá el texto del extracto de AUNE usando el botón "Cargar Extracto" para comenzar.';
   ['tab-resumen','tab-renta-variable','tab-renta-fija','tab-liquidez','tab-cuentas'].forEach(id => document.getElementById(id).innerHTML = '');
   showExportBtn();
-  saveToFirebase();
+  if(window._firebaseSave) window._firebaseSave();
 });
 
 renderAll();
 
 // ── Cargar datos al iniciar ──
-loadFromFirebase();
+if(window._firebaseLoad) window._firebaseLoad();
+
 </script>
 
 </body>
