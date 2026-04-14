@@ -267,7 +267,6 @@ async function saveToFirebase() {
 }
 
 // ── Borrar completamente el documento en Firestore ──
-// Esto garantiza que cualquier usuario que recargue la página vea la pantalla en blanco.
 async function clearFirebase() {
   try {
     await deleteDoc(DOC_REF);
@@ -276,52 +275,6 @@ async function clearFirebase() {
     console.error("✗ Error eliminando de Firebase:", e);
   }
 }
-
-// ── Exponer ambas funciones para el script no-module ──
-window._firebaseSave = saveToFirebase;
-window._firebaseClear = clearFirebase;
-
-// ── Cargar estado desde Firestore al abrir ──
-async function loadFromFirebase() {
-  const loadingEl = document.getElementById('emptyState');
-  if (loadingEl) {
-    loadingEl.querySelector('h2').textContent = 'Cargando datos...';
-    loadingEl.querySelector('p').textContent = 'Conectando con la base de datos...';
-  }
-  try {
-    const snap = await getDoc(DOC_REF);
-    if (snap.exists()) {
-      const data = snap.data();
-      if (window._appSetData) window._appSetData(data);
-      if (window._appRender) window._appRender();
-      console.log('✓ Datos cargados desde Firebase');
-    } else {
-      if (window._appEmptyState) window._appEmptyState('Sin datos cargados');
-    }
-  } catch(e) {
-    console.error('✗ Error cargando desde Firebase:', e);
-    if (window._appEmptyState) window._appEmptyState('Sin datos cargados');
-  }
-}
-
-loadFromFirebase();
-</script>
-
-<script>
-// Exponer funciones en window para que Firebase module pueda llamarlas
-window._appRender = function() { rebuildAccountChips(); showExportBtn(); renderAll(); };
-window._appSetData = function(data) {
-  if(data.positions) { positions = data.positions; }
-  if(data.acctNames) { Object.assign(acctNames, data.acctNames); }
-  if(data.TC) { TC = data.TC; }
-  if(data.headerDate) { document.getElementById('headerDate').textContent = data.headerDate; }
-  allAccounts = [...new Set(positions.map(p => p.cuenta))];
-  selectedAccounts = [...allAccounts];
-};
-window._appEmptyState = function(msg) {
-  const el = document.getElementById('emptyState');
-  if(el) { el.querySelector('h2').textContent = msg || 'Sin datos cargados'; el.querySelector('p').textContent = 'Pegá el texto del extracto de AUNE usando el botón "Cargar Extracto" para comenzar.'; }
-};
 
 // ═══════════════════════════════════════════
 // STATE
@@ -530,7 +483,7 @@ function importExtract(text) {
   const fechaM = text.match(/Fecha[:\s]+(\d{2}\/\d{2}\/\d{4})/i);
   const fechaStr = fechaM ? fechaM[1] : new Date().toLocaleDateString('es-AR');
   document.getElementById('headerDate').textContent = '📅 ' + fechaStr;
-  if(window._firebaseSave) window._firebaseSave();
+  saveToFirebase();
   return { success:true, message:`Cuenta [${cuenta}] ${cuentaNombre}: ${newPos.length} posiciones cargadas. TC: ${TC.toLocaleString('es-AR')}` };
 }
 
@@ -879,12 +832,44 @@ document.getElementById('btnClear').addEventListener('click', async () => {
   showExportBtn();
 
   // 2. Borrar el documento de Firebase para que todos vean pantalla en blanco
-  if (window._firebaseClear) {
-    await window._firebaseClear();
-  }
+  await clearFirebase();
 });
 
-renderAll();
+// ═══════════════════════════════════════════
+// CARGA INICIAL DESDE FIREBASE
+// Se llama aquí abajo, después de que todas las funciones están definidas.
+// Así no hay condición de carrera.
+// ═══════════════════════════════════════════
+async function loadFromFirebase() {
+  const loadingEl = document.getElementById('emptyState');
+  loadingEl.querySelector('h2').textContent = 'Cargando datos...';
+  loadingEl.querySelector('p').textContent = 'Conectando con la base de datos...';
+  try {
+    const snap = await getDoc(DOC_REF);
+    if (snap.exists()) {
+      const data = snap.data();
+      if (data.positions) positions = data.positions;
+      if (data.acctNames) Object.assign(acctNames, data.acctNames);
+      if (data.TC) TC = data.TC;
+      if (data.headerDate) document.getElementById('headerDate').textContent = data.headerDate;
+      allAccounts = [...new Set(positions.map(p => p.cuenta))];
+      selectedAccounts = [...allAccounts];
+      rebuildAccountChips();
+      showExportBtn();
+      renderAll();
+      console.log('✓ Datos cargados desde Firebase');
+    } else {
+      loadingEl.querySelector('h2').textContent = 'Sin datos cargados';
+      loadingEl.querySelector('p').textContent = 'Pegá el texto del extracto de AUNE usando el botón "Cargar Extracto" para comenzar.';
+    }
+  } catch(e) {
+    console.error('✗ Error cargando desde Firebase:', e);
+    loadingEl.querySelector('h2').textContent = 'Sin datos cargados';
+    loadingEl.querySelector('p').textContent = 'Pegá el texto del extracto de AUNE usando el botón "Cargar Extracto" para comenzar.';
+  }
+}
+
+loadFromFirebase();
 </script>
 </body>
 </html>
