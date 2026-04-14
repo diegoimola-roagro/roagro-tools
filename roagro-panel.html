@@ -234,7 +234,7 @@
 // FIREBASE INIT
 // ═══════════════════════════════════════════
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, deleteDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { doc, setDoc, deleteDoc, getDocFromServer, initializeFirestore, memoryLocalCache } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBJGbakLA0m8EOciG9FbKZmXHm91CoOs-4",
@@ -247,7 +247,9 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const db = getFirestore(app);
+// Deshabilitar caché offline para que siempre lea del servidor
+// Así el "Limpiar" tiene efecto inmediato para todos
+const db = initializeFirestore(app, { localCache: memoryLocalCache() });
 const DOC_REF = doc(db, "inversiones", "portfolio");
 
 // ── Guardar estado en Firestore ──
@@ -845,7 +847,7 @@ async function loadFromFirebase() {
   loadingEl.querySelector('h2').textContent = 'Cargando datos...';
   loadingEl.querySelector('p').textContent = 'Conectando con la base de datos...';
   try {
-    const snap = await getDoc(DOC_REF);
+    const snap = await getDocFromServer(DOC_REF);
     if (snap.exists()) {
       const data = snap.data();
       if (data.positions) positions = data.positions;
