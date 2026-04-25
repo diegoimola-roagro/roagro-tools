@@ -1,8 +1,4 @@
-
-
-<script>
-
-</script><!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -267,7 +263,7 @@
 // FIREBASE INIT
 // ═══════════════════════════════════════════
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-import { getFirestore, doc, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getFirestore, doc, setDoc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 
 
 const firebaseConfig = {
@@ -292,9 +288,9 @@ const DOC_REF = doc(db, "inversiones", "portfolio");
 async function saveToFirebase() {
   try {
     await setDoc(DOC_REF, {
-      positions,
-      acctNames,
-      TC,
+      positions: window.positions,
+      acctNames: window.acctNames,
+      TC: window.TC,
       updatedAt: new Date().toISOString(),
       headerDate: document.getElementById('headerDate').textContent
     });
@@ -303,6 +299,19 @@ async function saveToFirebase() {
     console.error("✗ Error guardando en Firebase:", e);
   }
 }
+
+async function clearFirebase() {
+  try {
+    await deleteDoc(DOC_REF);
+    console.log("✓ Datos eliminados de Firebase");
+  } catch(e) {
+    console.error("✗ Error eliminando de Firebase:", e);
+  }
+}
+
+// Exponer para que el script clásico pueda llamarlas
+window._firebaseSave = saveToFirebase;
+window._firebaseClear = clearFirebase;
 
 // ── Cargar estado desde Firestore al abrir ──
 async function loadFromFirebase() {
@@ -351,13 +360,13 @@ window._appEmptyState = function(msg) {
 // ═══════════════════════════════════════════
 // STATE
 // ═══════════════════════════════════════════
-let TC = 1415;
-let currency = 'ARS';
-let positions = [];
-let allAccounts = [];
-let selectedAccounts = [];
-let selectedEstado = 'all';
-const acctNames = {};
+var TC = 1415;
+var currency = 'ARS';
+var positions = [];
+var allAccounts = [];
+var selectedAccounts = [];
+var selectedEstado = 'all';
+var acctNames = {};
 const acctColors_palette = ['var(--accent)','var(--blue)','var(--green)','var(--purple)','var(--orange)','var(--cyan)'];
 let pendingCount = 0;
 let selectedEfectivo = 'all';
@@ -979,10 +988,8 @@ document.getElementById('btnClear').addEventListener('click', () => {
   document.getElementById('emptyState').querySelector('p').textContent = 'Pegá el texto del extracto de AUNE usando el botón "Cargar Extracto" para comenzar.';
   ['tab-resumen','tab-renta-variable','tab-renta-fija','tab-liquidez','tab-cuentas'].forEach(id => document.getElementById(id).innerHTML = '');
   showExportBtn();
-  if(window._firebaseSave) window._firebaseSave();
+  if(window._firebaseClear) window._firebaseClear();
 });
-
-renderAll();
 
 
 </script>
