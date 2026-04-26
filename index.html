@@ -290,7 +290,11 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getFirestore, doc, setDoc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
-const AUTHORIZED_EMAIL = "diegoimola@roagro.com.ar";
+const AUTHORIZED_EMAILS = [
+  "diegoimola@roagro.com.ar",
+  // agregá más emails acá:
+  // "otro@ejemplo.com",
+];
 
 const firebaseConfig = {
   apiKey: "AIzaSyBJGbakLA0m8EOciG9FbKZmXHm91CoOs-4",
@@ -377,7 +381,7 @@ document.getElementById('btnGoogle').addEventListener('click', async () => {
   document.getElementById('loginError').textContent = '';
   try {
     const result = await signInWithPopup(auth, new GoogleAuthProvider());
-    if (result.user.email !== AUTHORIZED_EMAIL) {
+    if (!AUTHORIZED_EMAILS.includes(result.user.email)) {
       await signOut(auth);
       showLogin('Acceso denegado. Esta cuenta no está autorizada.');
     }
@@ -392,7 +396,7 @@ document.getElementById('btnLogout').addEventListener('click', () => signOut(aut
 
 // ── Escuchar cambios de sesión ──
 onAuthStateChanged(auth, user => {
-  if (user && user.email === AUTHORIZED_EMAIL) {
+  if (user && AUTHORIZED_EMAILS.includes(user.email)) {
     showApp(user);
   } else {
     showLogin();
