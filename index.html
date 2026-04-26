@@ -167,13 +167,36 @@
   @keyframes fadeUp { from{opacity:0;transform:translateY(12px)} to{opacity:1;transform:translateY(0)} }
   .animate-in { animation:fadeUp 0.5s ease both; }
   .delay-1{animation-delay:.05s}.delay-2{animation-delay:.1s}.delay-3{animation-delay:.15s}.delay-4{animation-delay:.2s}.delay-5{animation-delay:.25s}.delay-6{animation-delay:.3s}.delay-7{animation-delay:.35s}.delay-8{animation-delay:.4s}
+
+  /* LOGIN SCREEN */
+  .login-screen { display:none; position:fixed; inset:0; background:var(--bg); z-index:200; align-items:center; justify-content:center; flex-direction:column; gap:28px; }
+  .login-screen.visible { display:flex; }
+  .login-card { background:var(--bg-card); border:1px solid var(--border); border-radius:20px; padding:48px 56px; text-align:center; box-shadow:0 24px 80px rgba(0,0,0,0.4); }
+  .login-logo { width:56px; height:56px; background:linear-gradient(135deg,var(--accent),#a04020); border-radius:14px; display:flex; align-items:center; justify-content:center; font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:26px; color:#fff; margin:0 auto 20px; box-shadow:0 0 28px var(--accent-glow); }
+  .login-title { font-family:'Barlow Condensed',sans-serif; font-weight:700; font-size:28px; margin-bottom:6px; }
+  .login-sub { font-size:13px; color:var(--text-muted); margin-bottom:32px; }
+  .btn-google { display:flex; align-items:center; gap:12px; padding:13px 28px; border-radius:10px; border:1px solid var(--border); background:var(--bg); color:var(--text); font-family:'Barlow',sans-serif; font-size:15px; font-weight:600; cursor:pointer; transition:all 0.15s; margin:0 auto; }
+  .btn-google:hover { border-color:var(--accent); background:var(--accent-glow); }
+  .btn-google svg { flex-shrink:0; }
+  .login-error { font-size:13px; color:var(--accent); margin-top:16px; min-height:20px; }
 </style>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 </head>
 <body>
-<style>
-  </style>
 
+<!-- PANTALLA DE LOGIN -->
+<div class="login-screen visible" id="loginScreen">
+  <div class="login-card">
+    <div class="login-logo">R</div>
+    <div class="login-title">PANEL DE INVERSIONES</div>
+    <div class="login-sub">Roagro SA — Acceso privado</div>
+    <button class="btn-google" id="btnGoogle">
+      <svg width="20" height="20" viewBox="0 0 48 48"><path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/><path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/><path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/><path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.18 1.48-4.97 2.35-8.16 2.35-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/></svg>
+      Iniciar sesión con Google
+    </button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
 
   <div class="header">
     <div class="header-left">
@@ -188,6 +211,7 @@
       <button class="btn-import" id="btnClear" style="border-color:var(--text-dim);color:var(--text-dim);background:transparent;display:none">🗑 LIMPIAR</button>
       <button class="btn-import" id="btnExportPNG" style="border-color:var(--green);color:var(--green);background:var(--green-dim);display:none">↓ RESUMEN PNG</button>
       <div class="header-date" id="headerDate">📅 —</div>
+      <button class="btn-import" id="btnLogout" style="border-color:var(--text-dim);color:var(--text-dim);background:transparent;display:none">↩ SALIR</button>
     </div>
   </div>
 
@@ -264,7 +288,9 @@
 // ═══════════════════════════════════════════
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
 import { getFirestore, doc, setDoc, getDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore.js";
+import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js";
 
+const AUTHORIZED_EMAIL = "imoladiego@gmail.com";
 
 const firebaseConfig = {
   apiKey: "AIzaSyBJGbakLA0m8EOciG9FbKZmXHm91CoOs-4",
@@ -278,11 +304,8 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 const DOC_REF = doc(db, "inversiones", "portfolio");
-
-// ── Auth UI ──
-
-
 
 // ── Guardar estado en Firestore ──
 async function saveToFirebase() {
@@ -313,7 +336,7 @@ async function clearFirebase() {
 window._firebaseSave = saveToFirebase;
 window._firebaseClear = clearFirebase;
 
-// ── Cargar estado desde Firestore al abrir ──
+// ── Cargar datos desde Firestore ──
 async function loadFromFirebase() {
   const loadingEl = document.getElementById('emptyState');
   if (loadingEl) {
@@ -336,8 +359,45 @@ async function loadFromFirebase() {
   }
 }
 
-// ── Cargar datos al iniciar ──
-loadFromFirebase();
+// ── Auth: mostrar/ocultar app según sesión ──
+function showApp(user) {
+  document.getElementById('loginScreen').classList.remove('visible');
+  document.getElementById('btnLogout').style.display = 'inline-block';
+  loadFromFirebase();
+}
+
+function showLogin(errorMsg) {
+  document.getElementById('loginScreen').classList.add('visible');
+  document.getElementById('btnLogout').style.display = 'none';
+  if (errorMsg) document.getElementById('loginError').textContent = errorMsg;
+}
+
+// ── Botón Google ──
+document.getElementById('btnGoogle').addEventListener('click', async () => {
+  document.getElementById('loginError').textContent = '';
+  try {
+    const result = await signInWithPopup(auth, new GoogleAuthProvider());
+    if (result.user.email !== AUTHORIZED_EMAIL) {
+      await signOut(auth);
+      showLogin('Acceso denegado. Esta cuenta no está autorizada.');
+    }
+  } catch(e) {
+    showLogin('Error al iniciar sesión. Intentá de nuevo.');
+    console.error(e);
+  }
+});
+
+// ── Botón Salir ──
+document.getElementById('btnLogout').addEventListener('click', () => signOut(auth));
+
+// ── Escuchar cambios de sesión ──
+onAuthStateChanged(auth, user => {
+  if (user && user.email === AUTHORIZED_EMAIL) {
+    showApp(user);
+  } else {
+    showLogin();
+  }
+});
 
 </script>
 
